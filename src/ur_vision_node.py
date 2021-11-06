@@ -55,6 +55,10 @@ from tf2_msgs.msg import TFMessage
 # It used for convert quaternion to euler or euler to quaternion
 from scipy.spatial.transform import Rotation
 
+from geometry_msgs.msg import Point
+
+import tf
+
 ALL_CONTROLLERS = [
         "scaled_pos_joint_traj_controller",
         "pos_joint_traj_controller",
@@ -88,7 +92,11 @@ class UR():
 
         # set flag for control ur robot
         self.move_flag = False
-        
+
+        # vision center point
+        self.pt = Point()
+        self.pt.x = 640/2
+        self.pt.y = 480/2
         # ROS Service Initialization
         # ========================================
         # Get Current Robot Mode
@@ -163,7 +171,9 @@ class UR():
         # script publisher for specific purpose
         #self.script_publisher = rospy.Publisher("/ur_hardware_interface/script_command", std_msgs.msg.String, queue_size=1)
 
+        rospy.Subscriber("point", Point, self.callback)
 
+        self.listener = tf.TransformListener()
 
         # Running up the Manipulator
         # ========================================
@@ -232,6 +242,8 @@ class UR():
             self.circle()
         elif key == keyboard.KeyCode(char='3'):
             self.object_observation()
+        elif key == keyboard.KeyCode(char='4'):
+            self.visual_tracking()
             
 
     # Function for Control UR Robot in the Cartesian Coordinate
@@ -277,10 +289,10 @@ class UR():
     def check_cartesian_limit(self, x, y, z, roll, pitch, yaw):
         if (math.sqrt(pow(x,2)+pow(y,2)+pow(z,2)) > 1.2) \
                 or (math.sqrt(pow(x,2)+pow(y,2)+pow(z,2)) < 0.05) \
-                or x < 0.0 or z < 0.0 \
+                or y < 0.0 or z < 0.2 \
                 or (roll > -135.0 and roll < 135.0) \
                 or (pitch < -45.0 or pitch > 45.0) \
-                or (yaw > 180.0 and yaw < 0.0): 
+                or (yaw > -135.0 and yaw < 135.0): 
             return False
         else: 
             return True
@@ -360,6 +372,53 @@ class UR():
 
         self.run(pose_list)
 
+
+    def visual_tracking(self):
+        # pose list
+        # image resolution
+        # 640x480
+        # distance of x : 1.318938217 (m)
+        # distance of y : 0.614182456 (m)
+        # resolution of x : 0.002060841 (m)
+        # resolution of y : 0.001279547 (m)
+        # camera_offset_x : 0.035 (m)
+
+        camera_offset_x = 0.035
+
+        while(True):
+            pt_robot = Point()
+            pt_robot.x = 640/2
+            pt_robot.y = 480/2
+
+            pt_target = Point()
+            pt_target.x = self.pt.x - pt_robot.x
+            pt_target.y = -(self.pt.y - pt_robot.y)
+
+            real_x = pt_target.x*0.002060841
+            real_y = pt_target.y*0.001279547
+
+            try:
+                (trans,rot) = self.listener.lookupTransform('/base', '/tool0_controller', rospy.Time(0))
+            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+                pirnt("tf error")
+            
+
+
+            print("trans")
+            print(trans)
+            print("real_x")
+            print(real_x)
+            print("real_y")
+            print(real_y)
+            pose_list = [[trans[0]+real_x, trans[1]+real_y, 0.5, 180.0, 0.0, 180.0, 5.0]]
+            print("pose_list")
+            print (pose_list)
+
+            self.run(pose_list)
+
+            rospy.sleep(100)
+        
+
     def run(self, pose_list):    
         self.move_flag = True
         for l in pose_list:
@@ -379,6 +438,11 @@ class UR():
         # Call Cartesian Trajectory Function with Changed Pose Parameters
         self.cartesian_traj(pose_list)
         self.move_flag = False
+
+    def callback(self, pt):
+        #print(pt)
+        self.pt = pt
+        #print(self.pt)
 
 # Main, We name the node's name here and Create UR Instance
 if __name__ == '__main__':

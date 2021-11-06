@@ -48,7 +48,7 @@ services:
     container_name: ur-ros-control
     depends_on:
       - ros-master
-      - ur-ros-driver
+      #- ur-ros-driver
     networks: 
       macvlan-network: 
         ipv4_address: 192.168.2.5
@@ -60,6 +60,48 @@ services:
       - ~/eh_lecture/real/group_1/ur_ros_custom:/root/catkin_ws/src/ur_ros_custom
       - /tmp/.X11-unix:/tmp/.X11-unix:rw 
     command: tail -F anything
+    cpus: 1.0
+    privileged: true
+    restart: always
+
+  realsense-ros-driver:
+    image: intelpengo/realsense2:latest
+    container_name: realsense-ros-driver
+    depends_on:
+      - ros-master
+    networks: 
+      macvlan-network: 
+        ipv4_address: 192.168.2.6
+    environment:
+      - "ROS_MASTER_URI=http://192.168.2.2:11311"
+      - "ROS_HOSTNAME=192.168.2.6"
+      - "DISPLAY=unix$DISPLAY" 
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw 
+    command: >      
+      bash -c "roslaunch realsense2_camera rs_camera.launch"
+    cpus: 1.0
+    privileged: true
+    restart: always
+
+  image-processor:
+    image: ur-ros-driver:lecture-week-05
+    container_name: image-processor
+    depends_on:
+      - ros-master
+    networks: 
+      macvlan-network: 
+        ipv4_address: 192.168.2.7
+    environment:
+      - "ROS_MASTER_URI=http://192.168.2.2:11311"
+      - "ROS_HOSTNAME=192.168.2.7"
+      - "DISPLAY=unix$DISPLAY"
+    volumes: 
+      - ~/eh_lecture/real/group_1/ur_ros_custom:/root/catkin_ws/src/ur_ros_custom
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    command: >      
+      bash -c "source ~/catkin_ws/devel/setup.bash &&
+      rosrun ur_ros_custom vision_node.py"
     cpus: 1.0
     privileged: true
     restart: always

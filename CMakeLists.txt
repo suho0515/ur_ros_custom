@@ -12,5 +12,5 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-catkin_install_python(PROGRAMS src/ur_node.py src/ur_custom_node.py
+catkin_install_python(PROGRAMS src/ur_node.py src/ur_custom_node.py src/vision_node.py src/ur_vision_node.py 
                       DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
